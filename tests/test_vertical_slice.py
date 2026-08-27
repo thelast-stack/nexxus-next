@@ -55,15 +55,18 @@ def test_approved_execution_failure_exposes_current_result_limitation():
     _, _, proposal, decision, request = make_flow("approved")
     core = Core()
 
-    authorization = core.execute(request, proposal, decision)
-    assert authorization.status == "executed"
+    authorization_result = core.execute(request, proposal, decision)
+    assert authorization_result.status == "executed"
 
-    # Simulated executor failure after Core authorization. No contract change is made.
-    simulated_executor_error = "simulated executor failure"
-    observed_result = authorization
+    def simulated_executor(actions):
+        raise RuntimeError("simulated executor failure")
 
-    assert simulated_executor_error
-    assert observed_result.status == "executed"
-    assert observed_result.details["actions"] == list(proposal.actions)
-    # The current result has no field that represents the executor failure.
-    assert "error" not in observed_result.details
+    try:
+        simulated_executor(authorization_result.details["actions"])
+    except RuntimeError as error:
+        executor_error = str(error)
+
+    # The current contract has no failure state. The only available result remains "executed".
+    assert executor_error == "simulated executor failure"
+    assert authorization_result.status == "executed"
+    assert "error" not in authorization_result.details
