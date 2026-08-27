@@ -55,7 +55,7 @@ class ExecutionResult:
     execution_id: str
     proposal_id: str
     decision_id: str
-    status: Literal["executed", "rejected"]
+    status: Literal["succeeded", "failed", "rejected"]
     details: dict[str, Any]
 
 
@@ -65,7 +65,6 @@ class Core:
 
     def execute(self, request: ExecutionRequest, proposal: ResolutionProposal, decision: HumanDecision) -> ExecutionResult:
         self.audit_log.append({"type": "execution_request", "execution_id": request.execution_id})
-
         if request.proposal_id != proposal.proposal_id or request.decision_id != decision.decision_id:
             return self._reject(request, "request does not match proposal/decision")
         if decision.proposal_id != proposal.proposal_id:
@@ -76,13 +75,12 @@ class Core:
             return self._reject(request, "decision authority missing")
         if not proposal.actions:
             return self._reject(request, "proposal contains no action")
-
         result = ExecutionResult(
             result_id=f"result-{request.execution_id}",
             execution_id=request.execution_id,
             proposal_id=proposal.proposal_id,
             decision_id=decision.decision_id,
-            status="executed",
+            status="succeeded",
             details={"actions": list(proposal.actions)},
         )
         self.audit_log.append({"type": "execution_result", "result_id": result.result_id, "execution_id": request.execution_id, "status": result.status})
