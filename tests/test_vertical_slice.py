@@ -1,4 +1,5 @@
 from nexxus.core import Core, ExecutionRequest, HumanDecision, InvestigationRequest, ResolutionProposal, SectorEvent, utc_now
+from nexxus.executor import simulate_failure
 
 
 def make_flow(decision_status="approved"):
@@ -13,13 +14,15 @@ def make_flow(decision_status="approved"):
 def test_approved_flow_executes_and_is_traceable():
     event, investigation, proposal, decision, request = make_flow()
     result = Core().execute(request, proposal, decision)
-    assert result.status == "executed"
+    assert result.status == "succeeded"
     assert investigation.event_id == event.event_id
     assert proposal.event_id == event.event_id
     assert decision.proposal_id == proposal.proposal_id
     assert request.proposal_id == proposal.proposal_id
     assert request.decision_id == decision.decision_id
     assert result.execution_id == request.execution_id
+    assert result.proposal_id == proposal.proposal_id
+    assert result.decision_id == decision.decision_id
     assert result.result_id == f"result-{request.execution_id}"
 
 
@@ -48,25 +51,17 @@ def test_approved_result_contains_context_for_master_ai():
     event, _, proposal, decision, request = make_flow()
     result = Core().execute(request, proposal, decision)
     context = {"event_id": event.event_id, "proposal_id": proposal.proposal_id, "decision_id": decision.decision_id, "execution_id": request.execution_id, "result_id": result.result_id, "status": result.status}
-    assert context == {"event_id": "evt-1", "proposal_id": "prop-1", "decision_id": "dec-1", "execution_id": "exec-1", "result_id": "result-exec-1", "status": "executed"}
+    assert context == {"event_id": "evt-1", "proposal_id": "prop-1", "decision_id": "dec-1", "execution_id": "exec-1", "result_id": "result-exec-1", "status": "succeeded"}
 
 
-def test_approved_execution_failure_exposes_current_result_limitation():
+def test_approved_execution_can_become_failed_at_executor_boundary():
     _, _, proposal, decision, request = make_flow("approved")
-    core = Core()
-
-    authorization_result = core.execute(request, proposal, decision)
-    assert authorization_result.status == "executed"
-
-    def simulated_executor(actions):
-        raise RuntimeError("simulated executor failure")
-
-    try:
-        simulated_executor(authorization_result.details["actions"])
-    except RuntimeError as error:
-        executor_error = str(error)
-
-    # The current contract has no failure state. The only available result remains "executed".
-    assert executor_error == "simulated executor failure"
-    assert authorization_result.status == "executed"
-    assert "error" not in authorization_result.details
+    authorization_result = Core().execute(request, proposal, decision)
+    assert authorization_result.status == "succeeded"
+    failed = simulate_failure(authorization_result)
+    assert failed.status == "failed"
+    assert failed.status != "succeeded"
+    assert failed.status != "rejected"
+    assert failed.execution_id == request.execution_id
+    assert failed.proposal_id == proposal.proposal_id
+    assert failed.decision_id == decision.decision_id
