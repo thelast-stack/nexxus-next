@@ -17,8 +17,10 @@ def run_vehicle_breakdown(decision_status: str = "approved"):
     proposal = ResolutionProposal(
         "prop-1", event.event_id, "Veículo indisponível durante frete",
         {"investigation": investigation.request_id},
-        ({"type": "tow_vehicle", "vehicle": event.entity},
-         {"type": "authorize_repair", "vehicle": event.entity}),
+        (
+            {"type": "tow_vehicle", "vehicle": event.entity},
+            {"type": "authorize_repair", "vehicle": event.entity},
+        ),
         ("transportes", "manutencao", "financeiro"), "medium",
     )
     decision = HumanDecision("dec-1", proposal.proposal_id, decision_status, "director-1")
