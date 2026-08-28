@@ -20,28 +20,13 @@ class MasterAI:
         transport = by_sector["transportes"].facts
         maintenance = by_sector["manutencao"].facts
         finance = by_sector["financeiro"].facts
-        return ResolutionProposal(
-            proposal_id="master-proposal-1",
-            event_id=event_id,
-            problem="Avaria de veículo afecta uma operação urgente e exige coordenação transversal",
-            context={"transportes": transport, "manutencao": maintenance, "financeiro": finance},
-            actions=(
-                {"type": "coordinate_vehicle_repair", "vehicle": transport["vehicle_id"]},
-                {"type": "manage_operational_impact", "operation": transport["operation_id"]},
-            ),
-            sectors=("transportes", "manutencao", "financeiro"),
-            impact_risk="high",
-            approval_required=True,
-        )
+        return ResolutionProposal("master-proposal-1", event_id, "Avaria de veículo afecta uma operação urgente e exige coordenação transversal", {"transportes": transport, "manutencao": maintenance, "financeiro": finance}, ({"type": "coordinate_vehicle_repair", "vehicle": transport["vehicle_id"]}, {"type": "manage_operational_impact", "operation": transport["operation_id"]}), ("transportes", "manutencao", "financeiro"), "high", True)
 
     def handle_execution_result(self, result: ExecutionResult) -> ResolutionProposal | None:
-        if result.status != "failed":
-            return None
-        return ResolutionProposal(
-            proposal_id=f"followup-{result.execution_id}",
-            event_id=result.proposal_id,
-            problem="Execução falhou após autorização humana",
-            context={"source_execution_id": result.execution_id, "source_result_id": result.result_id, "source_proposal_id": result.proposal_id, "source_decision_id": result.decision_id, "failure": result.details},
-            actions=({"type": "investigate_execution_failure", "execution_id": result.execution_id},),
-            sectors=("transportes",), impact_risk="unknown", approval_required=True,
-        )
+        if result.status != "failed": return None
+        return ResolutionProposal(f"followup-{result.execution_id}", result.proposal_id, "Execução falhou após autorização humana", {"source_execution_id": result.execution_id, "source_result_id": result.result_id, "source_proposal_id": result.proposal_id, "source_decision_id": result.decision_id, "failure": result.details}, ({"type": "investigate_execution_failure", "execution_id": result.execution_id},), ("transportes",), "unknown", True)
+
+    def interpret_execution_result(self, result: ExecutionResult) -> str:
+        if result.status == "failed":
+            return f"Execução {result.execution_id} falhou: {result.details.get('reason', 'motivo não indicado')}"
+        return f"Execução {result.execution_id}: {result.status}"
