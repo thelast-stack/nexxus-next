@@ -14,8 +14,18 @@ def test_demo_state_runs_real_coordination_and_requires_human_approval():
     assert state.proposal.sectors == ("transportes", "manutencao", "financeiro")
     assert state.proposal.context["manutencao"]["diagnosis"] == "falha do motor"
     assert state.proposal.context["financeiro"]["alternative_cost"] == 1800
+    assert state.suggestion_accepted is False
     assert state.request is None
 
+    try:
+        state.decide("approved")
+        assert False, "decision must not bypass suggestion acceptance"
+    except ValueError:
+        pass
+
+    state.accept_suggestion()
+    assert state.suggestion_accepted is True
+    assert state.request is None
     state.decide("rejected")
     assert state.result.status == "rejected"
     assert state.result.proposal_id == state.proposal.proposal_id
@@ -24,6 +34,7 @@ def test_demo_state_runs_real_coordination_and_requires_human_approval():
 def test_demo_state_approved_flow_produces_execution_result_and_master_interpretation():
     state = DemoState()
     state.activate_breakdown()
+    state.accept_suggestion()
     state.decide("approved")
     assert state.result.status == "succeeded"
     state.execute_failure()
@@ -46,6 +57,12 @@ def test_demo_http_interface_reflects_live_state():
             data = json.load(response)
         assert data["event"]["event_id"] == "evt-demo-1"
         assert data["proposal"]["sectors"] == ["transportes", "manutencao", "financeiro"]
+        assert data["suggestion_accepted"] is False
+        req = urllib.request.Request(base + "/api/accept-suggestion", method="POST")
+        with urllib.request.urlopen(req) as response:
+            data = json.load(response)
+        assert data["suggestion_accepted"] is True
+        assert data["decision"] is None
     finally:
         server.shutdown()
         server.server_close()
