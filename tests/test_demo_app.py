@@ -31,6 +31,17 @@ def test_demo_state_runs_real_coordination_and_requires_human_approval():
     assert state.result.proposal_id == state.proposal.proposal_id
 
 
+def test_rejecting_master_suggestion_stops_the_flow_before_execution():
+    state = DemoState()
+    state.activate_breakdown()
+    state.reject_suggestion()
+    assert state.suggestion_rejected is True
+    assert state.suggestion_accepted is False
+    assert state.decision is None
+    assert state.request is None
+    assert state.result is None
+
+
 def test_demo_state_approved_flow_produces_execution_result_and_master_interpretation():
     state = DemoState()
     state.activate_breakdown()
@@ -58,6 +69,7 @@ def test_demo_http_interface_reflects_live_state():
         assert data["event"]["event_id"] == "evt-demo-1"
         assert data["proposal"]["sectors"] == ["transportes", "manutencao", "financeiro"]
         assert data["suggestion_accepted"] is False
+        assert data["suggestion_rejected"] is False
         req = urllib.request.Request(base + "/api/accept-suggestion", method="POST")
         with urllib.request.urlopen(req) as response:
             data = json.load(response)
